@@ -5,7 +5,7 @@ import copy
 from config import database_config
 from utils import distance_in_abs, cdf_nearest_search, order_holding, CDF, freq_nearest_search, node_cmp_by_value
 
-db = MySQLdb.connect(host=database_config['host'], port=3306, user=database_config['user'], passwd=database_config['password'], db=database_config['schema'], charset='utf8')
+db = MySQLdb.connect(host=database_config['host'], user=database_config['user'], passwd=database_config['password'], db=database_config['schema'], charset='utf8')
 cursor = db.cursor()
 loss_constant = 0.1
 loss = 0.1
@@ -54,8 +54,6 @@ class Column:
     self.nodes.sort()
     for node in self.nodes:
       node.freq = node.counter / total
-    # for node in self.nodes:
-    #   print('value: {0} counter: {1}'.format(node.value, node.counter))
   def data_decrypt(self, dataset):
     decrypt_set = list()
     for data in dataset:
@@ -195,15 +193,12 @@ def decrypt_and_output(matched_cols, columns, data, output_filename):
     decrypted_cols.append(ordered_matched_cols[index].data_decrypt(dataset))
   for index in range(len(decrypted_cols[0])):
     data_rows.append([col[index] for col in decrypted_cols])
-  # for row in data_rows:
-  #   print(row)
   # write result
   out = open('./data/{0}.csv'.format(output_filename), 'w')
   writer = csv.writer(out, dialect='excel')
   writer.writerow(columns)
   writer.writerow(title)
   writer.writerows(data_rows)
-    # print('\tlen: '+str(len(col.nodes)))
   # then frequency will contain all the columns in the form of dict
   for col in matched_cols:
     print('----------col {0} : {1} match result----------'.format(col.col_name, col.real_col_name))
@@ -214,6 +209,7 @@ if __name__ == '__main__':
   print('--------collecting data---------')
   assist_cols = collect_data()
   print('finished\n--------decrypting data--------')
+  print('\n------------------------------DET ATTACK------------------------------\n')
   cursor.execute('show columns from crypted')
   columns_detail = cursor.fetchall()
   columns = list()
@@ -228,7 +224,6 @@ if __name__ == '__main__':
   query_template = 'select {0} from crypted'
   DET_crypted_data = list()
   for col_name in columns:
-    # print(query_template.format(col_name))
     cursor.execute(query_template.format(col_name))
     # construct a dict
     data = cursor.fetchall()
@@ -240,7 +235,7 @@ if __name__ == '__main__':
   decrypt_and_output(matched_cols, columns, DET_crypted_data, 'DET_decrypt_2017')
 
   # --------------------------ope attack--------------------------------
-  print('----------OPE ATTACK----------')
+  print('\n------------------------------OPE ATTACK------------------------------\n')
   columns = list()
   for col in columns_detail:
     if re.match('cdb_salt', col[0]) or re.search('OPE$', col[0]) is None:
@@ -249,7 +244,6 @@ if __name__ == '__main__':
   query_template = 'select {0} from crypted'
   OPE_crypted_data = list()
   for col_name in columns:
-    # print(query_template.format(col_name))
     cursor.execute(query_template.format(col_name))
     # construct a dict
     data = cursor.fetchall()
@@ -259,6 +253,4 @@ if __name__ == '__main__':
     encrypted_ope_cols.append(col)
   matched_cols = OPE_attack(assist_cols, encrypted_ope_cols)
   decrypt_and_output(matched_cols, columns, OPE_crypted_data, 'OPE_decrypt_2017')
-  
-  
 
