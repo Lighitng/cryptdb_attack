@@ -7,8 +7,8 @@ from utils import distance_in_abs, cdf_nearest_search, order_holding, CDF, freq_
 
 db = MySQLdb.connect(host=database_config['host'], port=3306, user=database_config['user'], passwd=database_config['password'], db=database_config['schema'], charset='utf8')
 cursor = db.cursor()
-lossy_constant = 0.1
-lossy = 0.1
+loss_constant = 0.1
+loss = 0.1
 density_standard = 0.8
 matched_flag = list()
 
@@ -82,8 +82,8 @@ def collect_data():
   return assist_cols
 
 def Match_columns(assist_cols, encrypted_cols):
-  global lossy
-  global lossy_constant
+  global loss
+  global loss_constant
   match_cols = copy.deepcopy(assist_cols)
   matched_col_names = []
   for (index, col) in enumerate(encrypted_cols):
@@ -91,7 +91,7 @@ def Match_columns(assist_cols, encrypted_cols):
     match_cols[index] = None
     while match_cols[index] is None:
       for assist_col in assist_cols:
-        if len(assist_col.nodes) >= (1 - lossy) * len(col.nodes) and len(assist_col.nodes) <= (1 + lossy) * len(col.nodes):
+        if len(assist_col.nodes) >= (1 - loss) * len(col.nodes) and len(assist_col.nodes) <= (1 + loss) * len(col.nodes):
           alternative_cols.append(assist_col)
       alter_index = -1
       for (idx, alter) in enumerate(alternative_cols):
@@ -102,8 +102,8 @@ def Match_columns(assist_cols, encrypted_cols):
           alter_index = idx
           break
       if len(alternative_cols) == 0 or alter_index == -1:
-        lossy += 0.1
-        print('No match column for {0}. lossy is increased'.format(col.col_name))
+        loss += 0.1
+        print('No match column for {0}. loss is increased'.format(col.col_name))
       else:
         for idx in range(alter_index, len(alternative_cols) - 1):
           if distance_in_abs(col, alternative_cols[alter_index]) > distance_in_abs(col, alternative_cols[idx]):
@@ -111,7 +111,7 @@ def Match_columns(assist_cols, encrypted_cols):
         match_cols[index] = alternative_cols[alter_index]
         col.real_col_name = match_cols[index].col_name
         matched_col_names.append(match_cols[index].col_name)
-    lossy = lossy_constant
+    loss = loss_constant
   # for debug
   # for index in range(7):
   #   print('----------col {}----------'.format(str(index)))
