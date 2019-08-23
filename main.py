@@ -65,18 +65,18 @@ class Column:
     return decrypt_set
 
 def insert_data (db, cursor):
-  insert_template = 'insert into {0}'.format(database_config['table']) + '(`team_abbr`,`team_div`,`play_stat`,`play_pos`, `play_height`, `play_weight`, `play_PF`)' + ' value ("{0}","{1}","{2}","{3}",{4},"{5}",{6})'
+  # insert_template = 'insert into {0}'.format(database_config['table']) + '(`team_abbr`,`team_div`,`play_stat`,`play_pos`, `play_height`, `play_weight`, `play_PF`)' + ' value ("{0}","{1}","{2}","{3}",{4},"{5}",{6})'
   csv_reader = csv.reader(open("./data/2016.csv"))
   assist_cols = [Column(col_name) for col_name in database_config['columns']]
-  assist_data = [[] for _ in range(7)]
+  assist_data = [[] for _ in database_config['columns']]
   for (index, row) in enumerate(csv_reader):
     if index <= 0:
       continue
-    cursor.execute(insert_template.format(*row))
+    # cursor.execute(insert_template.format(*row))
     for (index, data) in enumerate(assist_data):
       data.append((row[index],))
     # let cryptdb undo the first layer
-  db.commit()
+  # db.commit()
   for (index, col) in enumerate(assist_cols):
     col.handle_dataset(assist_data[index])
   return assist_cols
@@ -235,11 +235,6 @@ def OPE_attack(assist_cols, encrypted_cols):
   return encrypted_set
       
 def decrypt_and_output(matched_cols, columns, data, output_filename):
-  for col in matched_cols:
-    print('----------col {0} : {1} match result----------'.format(col.col_name, col.real_col_name))
-    for node in col.nodes:
-      print('\tencrypted: {0}\tdecrypted: {1}'.format(node.value, node.match))
-
   # title
   title = list()
   ordered_matched_cols = list()
@@ -265,12 +260,16 @@ def decrypt_and_output(matched_cols, columns, data, output_filename):
   writer.writerows(data_rows)
     # print('\tlen: '+str(len(col.nodes)))
   # then frequency will contain all the columns in the form of dict
+  for col in matched_cols:
+    print('----------col {0} : {1} match result----------'.format(col.col_name, col.real_col_name))
+    for node in col.nodes:
+      print('\tencrypted: {0}\tdecrypted: {1}'.format(node.value, node.match))
 
 if __name__ == '__main__':
   createTable(cursor)
-  print('--------inserting data---------')
+  print('--------collecting data---------')
   assist_cols = insert_data(db, cursor)
-  print('finished\n--------collecting data--------')
+  print('finished\n--------decrypting data--------')
   cursor.execute('show columns from crypted')
   columns_detail = cursor.fetchall()
   columns = list()
@@ -303,7 +302,7 @@ if __name__ == '__main__':
     # for node in col.nodes:
     #   print('\tfreq: {0}'.format(node.freq))
   matched_cols = DET_attack(assist_cols, encrypted_det_cols)
-  decrypt_and_output(matched_cols, columns, DET_crypted_data, 'DET_decrypt')
+  decrypt_and_output(matched_cols, columns, DET_crypted_data, 'DET_decrypt_2017')
 
   # --------------------------ope attack--------------------------------
   print('----------OPE ATTACK----------')
@@ -333,7 +332,7 @@ if __name__ == '__main__':
   #   for node in col.nodes:
   #     print('\tfreq: {0}'.format(node.freq))
   matched_cols = OPE_attack(assist_cols, encrypted_ope_cols)
-  decrypt_and_output(matched_cols, columns, OPE_crypted_data, 'OPE_decrypt')
+  decrypt_and_output(matched_cols, columns, OPE_crypted_data, 'OPE_decrypt_2017')
   
   
 
