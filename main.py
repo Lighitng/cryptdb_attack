@@ -1,9 +1,9 @@
-from init_table import createTable
 import MySQLdb
 import re
 import csv
 import copy
 from config import database_config
+from utils import distance_in_abs, cdf_nearest_search, order_holding, CDF, freq_nearest_search, node_cmp_by_value
 
 db = MySQLdb.connect(host=database_config['host'], port=3306, user=database_config['user'], passwd=database_config['password'], db=database_config['schema'], charset='utf8')
 cursor = db.cursor()
@@ -64,7 +64,7 @@ class Column:
           decrypt_set.append(node.match)
     return decrypt_set
 
-def insert_data (db, cursor):
+def collect_data():
   # insert_template = 'insert into {0}'.format(database_config['table']) + '(`team_abbr`,`team_div`,`play_stat`,`play_pos`, `play_height`, `play_weight`, `play_PF`)' + ' value ("{0}","{1}","{2}","{3}",{4},"{5}",{6})'
   csv_reader = csv.reader(open("./data/2016.csv"))
   assist_cols = [Column(col_name) for col_name in database_config['columns']]
@@ -80,17 +80,6 @@ def insert_data (db, cursor):
   for (index, col) in enumerate(assist_cols):
     col.handle_dataset(assist_data[index])
   return assist_cols
-
-def distance_in_abs(col1, col2):
-  # diffierent number of node will cause extra distance
-  freq_dist = 0.0
-  extra_dist = abs(len(col1.nodes) - len(col2.nodes)) * 1.0 / len(col1.nodes)
-  for (index, node) in enumerate(col1.nodes):
-    if index >= len(col2.nodes):
-      break
-    freq_dist += abs(node.freq - col2.nodes[index].freq)
-  return freq_dist + extra_dist
-
 
 def Match_columns(assist_cols, encrypted_cols):
   global lossy
@@ -133,50 +122,6 @@ def Match_columns(assist_cols, encrypted_cols):
   #     print('\tassist_col is none !!!')
   return [encrypted_cols, match_cols]
 
-def CDF(nodes, pos):
-  if pos <= 0:
-    return 0
-  else:
-    cdf = 0.0
-    for index in range(pos):
-      cdf += nodes[index].freq
-    return cdf
-
-def order_holding(index):
-  global matched_flag
-  for idx in range(index + 1, len(matched_flag)):
-    if matched_flag[idx] != 0:
-      return False
-  return True
-
-def cdf_nearest_search(ary, value):
-  global matched_flag
-  nearest = 0
-  while matched_flag[nearest] != 0:
-    nearest += 1
-  for (index, el) in enumerate(ary):
-    if abs(value - el) < abs(value - ary[nearest]) and matched_flag[index] == 0 and order_holding(index):
-      nearest = index
-  return nearest
-
-def freq_nearest_search(nodes, value):
-  global matched_flag
-  nearest = 0
-  while matched_flag[nearest] != 0:
-    nearest += 1
-  for (index, node) in enumerate(nodes):
-    if abs(value - node.freq) < abs(value - nodes[nearest].freq) and matched_flag[index] == 0:
-      nearest = index
-  return nearest
-
-
-def node_cmp_by_value(node1, node2):
-  if node1.value < node2.value:
-    return -1
-  elif node1.value > node2.value:
-    return 1
-  else:
-    return 0
 
 def DET_attack(assist_cols, encrypted_cols):
   global matched_flag
@@ -192,7 +137,7 @@ def DET_attack(assist_cols, encrypted_cols):
       exit(1)
     else:
       for (idx, node) in enumerate(e_col.nodes):
-        freq_pos = freq_nearest_search(a_col.nodes, node.freq)
+        freq_pos = freq_nearest_search(a_col.nodes, node.freq, matched_flag)
         matched_flag[freq_pos] = 1
         node.match = a_col.nodes[freq_pos].value
   return encrypted_set
@@ -224,7 +169,7 @@ def OPE_attack(assist_cols, encrypted_cols):
           node.match = a_col.nodes[0].value
           matched_flag[0] = 1
         node_cdf = CDF(e_col.nodes, idx)
-        cdf_pos = cdf_nearest_search(a_cdf, node_cdf)
+        cdf_pos = cdf_nearest_search(a_cdf, node_cdf, matched_flag)
         # avoid for mismatch
         if cdf_pos - idx >= len(a_col.nodes) - len(e_col.nodes):
           for i in range(idx, len(e_col.nodes)):
@@ -266,9 +211,8 @@ def decrypt_and_output(matched_cols, columns, data, output_filename):
       print('\tencrypted: {0}\tdecrypted: {1}'.format(node.value, node.match))
 
 if __name__ == '__main__':
-  createTable(cursor)
   print('--------collecting data---------')
-  assist_cols = insert_data(db, cursor)
+  assist_cols = collect_data()
   print('finished\n--------decrypting data--------')
   cursor.execute('show columns from crypted')
   columns_detail = cursor.fetchall()
@@ -292,15 +236,6 @@ if __name__ == '__main__':
     col = Column(col_name)
     col.handle_dataset(data)
     encrypted_det_cols.append(col)
-  # for (index, col) in enumerate(assist_cols):
-    # print('-------------assit_col {0}-------------'.format(str(index)))
-    # for node in col.nodes:
-    #   print('\tfreq: {0}'.format(node.freq))
-    # print('\tlen: '+str(len(col.nodes)))
-  # for (index, col) in enumerate(encrypted_det_cols):
-    # print('-------------encrypted_col {0}-------------'.format(str(index)))
-    # for node in col.nodes:
-    #   print('\tfreq: {0}'.format(node.freq))
   matched_cols = DET_attack(assist_cols, encrypted_det_cols)
   decrypt_and_output(matched_cols, columns, DET_crypted_data, 'DET_decrypt_2017')
 
@@ -322,15 +257,6 @@ if __name__ == '__main__':
     col = Column(col_name)
     col.handle_dataset(data)
     encrypted_ope_cols.append(col)
-  # for (index, col) in enumerate(assist_cols):
-  #   print('-------------assit_col {0}-------------'.format(str(index)))
-  #   for node in col.nodes:
-  #     print('\tfreq: {0}'.format(node.freq))
-    # print('\tlen: '+str(len(col.nodes)))
-  # for (index, col) in enumerate(encrypted_ope_cols):
-  #   print('-------------encrypted_col {0}-------------'.format(str(index)))
-  #   for node in col.nodes:
-  #     print('\tfreq: {0}'.format(node.freq))
   matched_cols = OPE_attack(assist_cols, encrypted_ope_cols)
   decrypt_and_output(matched_cols, columns, OPE_crypted_data, 'OPE_decrypt_2017')
   
