@@ -31,7 +31,6 @@ class Column:
   # @param {str} col_name
   def __init__(self, col_name):
     self.col_name = col_name
-    self.counter = 0
     self.freq = 0
     self.real_col_name = None
     self.nodes = list()
