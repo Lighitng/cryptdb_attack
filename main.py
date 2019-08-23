@@ -18,6 +18,7 @@ class Node:
     self.counter = 1
     self.value = value
     self.match = None
+    self.freq = 0.0
   def __lt__(self, other):
     if self.counter < other.counter:
       return True
@@ -31,7 +32,6 @@ class Column:
   # @param {str} col_name
   def __init__(self, col_name):
     self.col_name = col_name
-    self.freq = 0
     self.real_col_name = None
     self.nodes = list()
   # @param {value} str/int
@@ -40,7 +40,7 @@ class Column:
       if node.value == value:
         return node
     return None
-  def handle_dataset(self, data):
+  def init_dataset(self, data):
     total = float(len(data))
     if total == 0:
       return None
@@ -75,7 +75,7 @@ def collect_data():
     # let cryptdb undo the first layer
   # db.commit()
   for (index, col) in enumerate(assist_cols):
-    col.handle_dataset(assist_data[index])
+    col.init_dataset(assist_data[index])
   return assist_cols
 
 def Match_columns(assist_cols, encrypted_cols):
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     data = cursor.fetchall()
     DET_crypted_data.append(data)
     col = Column(col_name)
-    col.handle_dataset(data)
+    col.init_dataset(data)
     encrypted_det_cols.append(col)
   matched_cols = DET_attack(assist_cols, encrypted_det_cols)
   decrypt_and_output(matched_cols, columns, DET_crypted_data, 'DET_decrypt_2017')
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     data = cursor.fetchall()
     OPE_crypted_data.append(data)
     col = Column(col_name)
-    col.handle_dataset(data)
+    col.init_dataset(data)
     encrypted_ope_cols.append(col)
   matched_cols = OPE_attack(assist_cols, encrypted_ope_cols)
   decrypt_and_output(matched_cols, columns, OPE_crypted_data, 'OPE_decrypt_2017')
